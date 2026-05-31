@@ -9,6 +9,7 @@ Commit hash:
 import pygame
 from random import randint
 
+
 def display_score(start_time):
     current_time = int((pygame.time.get_ticks() - start_time) / 1000)
     score_surf = game_font.render(f"Score: {current_time}", False, (64, 64, 64))
@@ -16,25 +17,73 @@ def display_score(start_time):
     screen.blit(score_surf, score_rect)
     return current_time
 
+
 def obstacle_movement(obstacle_list):
-    if obstacle_list:
-        for obstacle_rect in obstacle_list:
-            obstacle_rect.x -= 5
+    if not obstacle_list:
+        return []
 
-            screen.blit(egg_surf, obstacle_rect)
+    updated_obstacles = []
+    for obstacle_surface, obstacle_rect in obstacle_list:
+        obstacle_rect.x -= 5
+        screen.blit(obstacle_surface, obstacle_rect)
 
-        obstacle_list = [obstacle for obstacle in obstacle_list if obstacle.x > -100]
-        
-        return obstacle_list
-    else: return []
-    
+        if obstacle_rect.right > 0:
+            updated_obstacles.append((obstacle_surface, obstacle_rect))
+
+    return updated_obstacles
+
+def collisions(player, obstacles):
+    for _, obstacle_rect in obstacles:
+        if player.colliderect(obstacle_rect):
+            return False
+    return True
+
+
+def reset_game():
+    global players_gravity_speed, obstacle_rect_list, score_start_time
+
+    players_gravity_speed = 0
+    obstacle_rect_list = []
+    player_rect.bottomleft = (25, GROUND_Y)
+    score_start_time = pygame.time.get_ticks()
+
+
+def spawn_obstacle():
+    if obstacle_rect_list:
+        last_obstacle_rect = obstacle_rect_list[-1][1]
+        spawn_x = max(randint(900, 1100), last_obstacle_rect.right + OBSTACLE_MIN_GAP)
+    else:
+        spawn_x = randint(900, 1100)
+
+    if randint(0, 2):
+        obstacle_rect_list.append(
+            (egg_surf, egg_surf.get_rect(bottomleft=(spawn_x, GROUND_Y)))
+        )
+    else:
+        obstacle_rect_list.append(
+            (bc_surf, bc_surf.get_rect(bottomleft=(spawn_x, 210)))
+        )
+
+def player_animation():
+    global player_surf, player_index
+
+    if player_rect.bottom < 300:
+        player_surf = player_jump
+    else:
+        player_index += 0.1
+        if player_index >= len(player_walk):player_index=0
+        player_surf = player_walk[int(player_index)]
+    # play walking animation if the player is on the floor
+    # display the jump surface when player is not on floor
+
 # Initialize Pygame and create a window
 pygame.init()
 screen = pygame.display.set_mode((800, 400))
 clock = pygame.time.Clock()
 running = True  # Pygame main loop, kills pygame when False
-score_start_time = pygame.time.get_ticks()
 score = 0
+score_start_time = 0
+OBSTACLE_MIN_GAP = 260
 
 # Game state variables
 is_playing = False  # Whether in game or in menu
@@ -62,12 +111,16 @@ pygame.time.set_timer(obstacle_timer, 1600)
 obstacle_rect_list = []
 
 # Load sprite assets
-player_surf = pygame.image.load("graphics/player/player_walk_1.png").convert_alpha()
+player_walk_1 = pygame.image.load("graphics/player/player_walk_1.png").convert_alpha()
+player_walk_2 = pygame.image.load("graphics/player/player_walk_2.png").convert_alpha()
+player_walk = [player_walk_1,player_walk_2]
+player_index = 0
+player_jump = pygame.image.load("graphics/player/player_jump.png").convert_alpha()
+
+player_surf = player_walk[player_index]
 player_rect = player_surf.get_rect(bottomleft=(25, GROUND_Y))
 egg_surf = pygame.image.load("graphics/egg/egg_1.png").convert_alpha()
-egg_rect = egg_surf.get_rect(bottomleft=(randint(900, 1100), GROUND_Y))
-
-bc = pygame.image.load("graphics/bombardino/bc.png").convert_alpha()
+bc_surf = pygame.image.load("graphics/bombardino/bc.png").convert_alpha() 
 
 
 while running:
@@ -89,11 +142,10 @@ while running:
             # When player wants to play again by pressing SPACE
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 is_playing = True
-                egg_rect.left = 800
-                score_start_time = pygame.time.get_ticks()
+                reset_game()
             
         if event.type == obstacle_timer and is_playing:
-            obstacle_rect_list.append(egg_surf.get_rect(bottomleft=(800, GROUND_Y)))
+            spawn_obstacle()
 
 
     if is_playing:
@@ -104,30 +156,28 @@ while running:
         screen.blit(GROUND_SURF, (0, GROUND_Y))
         score = display_score(score_start_time)
 
-        # Adjust egg's horizontal location then blit it
-        egg_rect.x -= 5
-        if egg_rect.right <= 0:
-            egg_rect.left = 800
-        screen.blit(egg_surf, egg_rect)
-
         # Adjust player's vertical location then blit it
         players_gravity_speed += 1
         player_rect.y += players_gravity_speed
         if player_rect.bottom > GROUND_Y:
             player_rect.bottom = GROUND_Y
+        player_animation()
         screen.blit(player_surf, player_rect)
 
         # Obstacle movement
         obstacle_rect_list = obstacle_movement(obstacle_rect_list)
 
-        # When player collides with enemy, game ends
-        if egg_rect.colliderect(player_rect):
+        # When player collides with any enemy, game ends
+        if not collisions(player_rect, obstacle_rect_list):
             is_playing = False
 
     # When game is over, display game over message
     else:
         screen.fill("white")
         screen.blit(player_stand, player_stand_rect)
+        obstacle_rect_list.clear()
+        player_rect.midbottom = (80,300)
+        players_gravity_speed = 0
         score_message = game_font.render(f"Your score: {score}", False, (111, 196, 169))
         score_message_rect = score_message.get_rect(center = (400, 330))
         screen.blit(game_name,game_name_rect)
