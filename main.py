@@ -5,7 +5,7 @@ Made by intern: @bassemfarid, no one or nothing else. 🤖
 Additional author: Andy Wang
 Commit hash: cfcac38ebf8d0da7475a6662af24faee47ab38d2
 
-Features I added:
+Features:
 - Character select (Tralalero Tralala and Tung Tung Tung Sahur)
 - Lives system with 3 hearts
 - Double jump
@@ -202,7 +202,7 @@ MAX_JUMPS = 2
 JUMP_POWER = [-20, -23]
 GRAVITY = [1.0, 1.5]
 
-# Backgrounds - city, desert, mountain, jungle, underwater from itch.io packs
+# Backgrounds: city, desert, mountain, jungle, underwater from itch.io packs
 # The Pixel Nook: https://the-pixel-nook.itch.io/parallax-backgrounds-demo
 # ansimuz: https://ansimuz.itch.io/underwater-fantasy-pixel-art-environment
 # License: Creative Commons Attribution v4.0 International
