@@ -5,7 +5,7 @@ Made by intern: @bassemfarid, no one or nothing else. 🤖
 Additional author: Andy Wang
 Commit hash: cfcac38ebf8d0da7475a6662af24faee47ab38d2
 
-Features:
+Features I added:
 - Character select (Tralalero Tralala and Tung Tung Tung Sahur)
 - Lives system with 3 hearts
 - Double jump
@@ -14,6 +14,9 @@ Features:
 - Shop to spend coins on boosts for your next run
 - Scrolling biome backgrounds that change every 500 points
 - Pause menu
+- More enemy types: Cappuccino Assassino (fast), Six and Seven (duo)
+- In-game powerups: magnet, slow time, shield
+- Camera shake when you get hit
 """
 
 import pygame
@@ -24,11 +27,10 @@ import math
 def load_scores():
     scores = []
     try:
-        f = open("scores.txt", "r")
-        for line in f:
-            if line.strip().isdigit():
-                scores.append(int(line.strip()))
-        f.close()
+        with open("scores.txt", "r") as f:
+            for line in f:
+                if line.strip().isdigit():
+                    scores.append(int(line.strip()))
     except:
         pass
     return scores
@@ -36,17 +38,15 @@ def load_scores():
 
 def save_scores(scores):
     scores.sort(reverse=True)
-    f = open("scores.txt", "w")
-    for s in scores[:10]:
-        f.write(str(s) + "\n")
-    f.close()
+    with open("scores.txt", "w") as f:
+        for s in scores[:10]:
+            f.write(str(s) + "\n")
 
 
 def load_coins():
     try:
-        f = open("coins.txt", "r")
-        val = f.read().strip()
-        f.close()
+        with open("coins.txt", "r") as f:
+            val = f.read().strip()
         if val.isdigit():
             return int(val)
     except:
@@ -55,25 +55,22 @@ def load_coins():
 
 
 def save_coins(amount):
-    f = open("coins.txt", "w")
-    f.write(str(amount))
-    f.close()
+    with open("coins.txt", "w") as f:
+        f.write(str(amount))
 
 
 def load_boost():
     try:
-        f = open("shop.txt", "r")
-        val = f.read().strip()
-        f.close()
+        with open("shop.txt", "r") as f:
+            val = f.read().strip()
         return val if val else "none"
     except:
         return "none"
 
 
 def save_boost(name):
-    f = open("shop.txt", "w")
-    f.write(name)
-    f.close()
+    with open("shop.txt", "w") as f:
+        f.write(name)
 
 
 def display_score(score):
@@ -89,28 +86,61 @@ def spawn_obstacle():
     else:
         x = randint(900, 1100)
 
-    if randint(0, 2):
+    pool = ["bbp", "bombardino"]
+    if score > 80:
+        pool.append("ca")
+    if score > 250:
+        pool.append("sixseven")
+
+    enemy = choice(pool)
+
+    if enemy == "bbp":
         rect = bbp_surf.get_rect(bottomleft=(x, GROUND_Y))
-        obstacle_list.append((bbp_surf, rect))
-    else:
+        obstacle_list.append((bbp_surf, rect, "bbp"))
+    elif enemy == "bombardino":
         rect = bombardino_surf.get_rect(bottomleft=(x, 300))
-        obstacle_list.append((bombardino_surf, rect))
+        obstacle_list.append((bombardino_surf, rect, "bombardino"))
+    elif enemy == "ca":
+        rect = ca_surf.get_rect(bottomleft=(x, GROUND_Y))
+        obstacle_list.append((ca_surf, rect, "ca"))
+    elif enemy == "sixseven":
+        r1 = six_surf.get_rect(bottomleft=(x, GROUND_Y))
+        obstacle_list.append((six_surf, r1, "six"))
+        r2 = seven_surf.get_rect(bottomleft=(x + 95, 333))
+        obstacle_list.append((seven_surf, r2, "seven"))
 
 
 def move_obstacles():
     global obstacle_list
     updated = []
-    for surf, rect in obstacle_list:
-        rect.x -= game_speed
+    for surf, rect, etype in obstacle_list:
+        if etype == "ca":
+            rect.x -= int(game_speed + 3)
+        elif etype == "bombardino":
+            rect.x -= int(game_speed)
+            rect.y = 210 + int(math.sin(rect.x * 0.025) * 20)
+        elif etype == "seven":
+            rect.x -= int(game_speed)
+            rect.y = 295 + int(math.sin(rect.x * 0.03) * 10)
+        else:
+            rect.x -= int(game_speed)
         screen.blit(surf, rect)
         if rect.right > 0:
-            updated.append((surf, rect))
+            updated.append((surf, rect, etype))
     obstacle_list = updated
 
 
 def check_collisions():
-    for surf, rect in obstacle_list:
-        if player_rect.colliderect(rect):
+    if active_powerup == "shield":
+        return True
+    inset = pygame.Rect(player_rect.x + 6, player_rect.y + 4,
+                        player_rect.width - 12, player_rect.height - 8)
+    for surf, rect, etype in obstacle_list:
+        if etype == "bombardino":
+            hit = pygame.Rect(rect.x + 4, rect.bottom - 18, rect.width - 8, 18)
+        else:
+            hit = rect
+        if inset.colliderect(hit):
             return False
     return True
 
@@ -129,12 +159,42 @@ def move_and_collect_coins():
     for rect in coin_list:
         rect.x -= game_speed
         screen.blit(coin_surf, rect)
-        if player_rect.colliderect(rect):
+        if active_powerup == "magnet":
+            pickup = pygame.Rect(player_rect.x - 80, player_rect.y - 40,
+                                 player_rect.width + 160, player_rect.height + 80)
+        else:
+            pickup = player_rect
+        if pickup.colliderect(rect):
             coins_run += 1
             total_coins += 1
         elif rect.right > 0:
             updated.append(rect)
     coin_list = updated
+
+
+def spawn_powerup():
+    if not powerup_list:
+        ptype = choice(["magnet", "slow", "shield"])
+        powerup_list.append((pygame.Rect(randint(900, 1100), randint(250, 320), 30, 30), ptype))
+
+
+def move_and_collect_powerups():
+    global powerup_list, active_powerup, powerup_timer
+    colors = {"magnet": (100, 200, 255), "slow": (180, 120, 255), "shield": (255, 215, 0)}
+    letters = {"magnet": "M", "slow": "S", "shield": "+"}
+    updated = []
+    for rect, ptype in powerup_list:
+        rect.x -= int(game_speed)
+        pygame.draw.circle(screen, colors[ptype], rect.center, 16)
+        pygame.draw.circle(screen, (255, 255, 255), rect.center, 16, 2)
+        screen.blit(small_font.render(letters[ptype], False, (255, 255, 255)),
+                    small_font.render(letters[ptype], False, (255, 255, 255)).get_rect(center=rect.center))
+        if player_rect.colliderect(rect):
+            active_powerup = ptype
+            powerup_timer = 480
+        elif rect.right > 0:
+            updated.append((rect, ptype))
+    powerup_list = updated
 
 
 def player_animation():
@@ -149,33 +209,44 @@ def player_animation():
 
 
 def reset_game():
-    global gravity_speed, obstacle_list, coin_list, score_acc
-    global lives, score, jumps_used, coins_run, game_speed, bg_offset
+    global gravity_speed, obstacle_list, coin_list, powerup_list
+    global score, score_acc, game_speed, lives, jumps_used
+    global coins_run, active_powerup, powerup_timer, shake_timer, bg_offset
 
     gravity_speed = 0
     obstacle_list = []
     coin_list = []
-    score_acc = 0.0
-    lives = 3
+    powerup_list = []
     score = 0
+    score_acc = 0.0
+    game_speed = 5
+    lives = 3
     jumps_used = 0
     coins_run = 0
-    game_speed = 5
+    active_powerup = "none"
+    powerup_timer = 0
+    shake_timer = 0
     bg_offset = 0
     player_rect.bottomleft = (25, GROUND_Y)
 
     boost = load_boost()
     if boost == "extra_life":
         lives = 4
+    elif boost == "shield":
+        active_powerup = "shield"
+        powerup_timer = 600
     save_boost("none")
 
 
 def handle_death():
-    global lives, obstacle_list, coin_list, game_state, total_coins, jumps_used, gravity_speed
+    global lives, obstacle_list, coin_list, powerup_list, game_state
+    global gravity_speed, jumps_used, total_coins, shake_timer
 
     lives -= 1
+    shake_timer = 18
     obstacle_list = []
     coin_list = []
+    powerup_list = []
     player_rect.bottomleft = (25, GROUND_Y)
     gravity_speed = 0
     jumps_used = 0
@@ -202,7 +273,7 @@ MAX_JUMPS = 2
 JUMP_POWER = [-20, -23]
 GRAVITY = [1.0, 1.5]
 
-# Backgrounds: city, desert, mountain, jungle, underwater from itch.io packs
+# Backgrounds - city, desert, mountain, jungle, underwater from itch.io packs
 # The Pixel Nook: https://the-pixel-nook.itch.io/parallax-backgrounds-demo
 # ansimuz: https://ansimuz.itch.io/underwater-fantasy-pixel-art-environment
 # License: Creative Commons Attribution v4.0 International
@@ -236,6 +307,9 @@ base_surfs = [t_base, tt_base]
 # Enemies
 bbp_surf = pygame.transform.scale(pygame.image.load("graphics/bbp/bbp.png").convert_alpha(), (52, 52))
 bombardino_surf = pygame.transform.scale(pygame.image.load("graphics/bombardino/bombardino.png").convert_alpha(), (56, 48))
+ca_surf = pygame.transform.scale(pygame.image.load("graphics/ca/ca.png").convert_alpha(), (48, 52))
+six_surf = pygame.transform.scale(pygame.image.load("graphics/sixseven/six.png").convert_alpha(), (44, 44))
+seven_surf = pygame.transform.scale(pygame.image.load("graphics/sixseven/seven.png").convert_alpha(), (44, 44))
 
 # UI
 heart_surf = pygame.transform.scale(pygame.image.load("graphics/utils/life.png").convert_alpha(), (28, 28))
@@ -245,6 +319,8 @@ obstacle_timer = pygame.USEREVENT + 1
 pygame.time.set_timer(obstacle_timer, 1500)
 coin_timer = pygame.USEREVENT + 2
 pygame.time.set_timer(coin_timer, 4000)
+powerup_timer_event = pygame.USEREVENT + 3
+pygame.time.set_timer(powerup_timer_event, 14000)
 
 scores = load_scores()
 total_coins = load_coins()
@@ -254,12 +330,16 @@ selected_char = 0
 gravity_speed = 0
 obstacle_list = []
 coin_list = []
+powerup_list = []
 score = 0
 score_acc = 0.0
 game_speed = 5
 lives = 3
 jumps_used = 0
 coins_run = 0
+active_powerup = "none"
+powerup_timer = 0
+shake_timer = 0
 bg_offset = 0
 
 player_surf = char_walk[0][0]
@@ -306,6 +386,8 @@ while running:
                 spawn_obstacle()
             if event.type == coin_timer:
                 spawn_coins()
+            if event.type == powerup_timer_event:
+                spawn_powerup()
 
         elif game_state == "paused":
             if event.type == pygame.KEYDOWN:
@@ -380,7 +462,13 @@ while running:
         score = int(score_acc) + coins_run * 10
         game_speed = 5 + score // 200
 
+        if active_powerup != "none":
+            powerup_timer -= 1
+            if powerup_timer <= 0:
+                active_powerup = "none"
+
         move_and_collect_coins()
+        move_and_collect_powerups()
         move_obstacles()
 
         gravity_speed += GRAVITY[selected_char]
@@ -390,6 +478,8 @@ while running:
             jumps_used = 0
 
         player_animation()
+        if active_powerup == "shield":
+            pygame.draw.circle(screen, (255, 215, 0), player_rect.center, 38, 2)
         screen.blit(player_surf, player_rect)
 
         # HUD
@@ -399,9 +489,19 @@ while running:
             screen.blit(heart_surf, heart_surf.get_rect(center=(770 - i * 36, 30)))
         screen.blit(coin_surf, coin_surf.get_rect(center=(750, 65)))
         screen.blit(small_font.render(str(coins_run), False, (255, 215, 0)), (700, 55))
+        if active_powerup != "none":
+            secs = powerup_timer // 60 + 1
+            pcolors = {"magnet": (100, 200, 255), "slow": (180, 120, 255), "shield": (255, 215, 0)}
+            screen.blit(small_font.render(active_powerup.upper() + " " + str(secs) + "s", False, pcolors[active_powerup]), (10, 10))
 
         if not check_collisions():
             handle_death()
+
+        if shake_timer > 0:
+            temp = screen.copy()
+            screen.fill((0, 0, 0))
+            screen.blit(temp, (randint(-6, 6), randint(-3, 3)))
+            shake_timer -= 1
 
     elif game_state == "paused":
         biome = (score // 500) % len(backgrounds)
