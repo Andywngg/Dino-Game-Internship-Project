@@ -5,7 +5,7 @@ Made by intern: @bassemfarid, no one or nothing else. 🤖
 Additional author: Andy Wang
 Commit hash: cfcac38ebf8d0da7475a6662af24faee47ab38d2
 
-Features I added:
+Features
 - Character select (Tralalero Tralala and Tung Tung Tung Sahur)
 - Lives system with 3 hearts
 - Double jump
@@ -15,7 +15,7 @@ Features I added:
 - Scrolling biome backgrounds that change every 500 points
 - Pause menu
 - More enemy types: Cappuccino Assassino (fast), Six and Seven (duo)
-- In-game powerups: magnet, slow time, shield
+- In game powerups: magnet, slow time, shield
 - Camera shake when you get hit
 """
 
@@ -273,10 +273,10 @@ MAX_JUMPS = 2
 JUMP_POWER = [-20, -23]
 GRAVITY = [1.0, 1.5]
 
-# Backgrounds - city, desert, mountain, jungle, underwater from itch.io packs
+# Backgrounds: city, desert, mountain, jungle, underwater from itch.io packs
 # The Pixel Nook: https://the-pixel-nook.itch.io/parallax-backgrounds-demo
 # ansimuz: https://ansimuz.itch.io/underwater-fantasy-pixel-art-environment
-# License: Creative Commons Attribution v4.0 International
+# License: Creative Commons Attribution v4.0 International if you go on site and click More Information
 BG_FILES = ["city_clean.gif", "forest1.png", "desert.gif",
             "mountain.gif", "jungle.gif", "underwater.png", "city_dirty.gif", "forest2.png"]
 backgrounds = []
@@ -423,8 +423,8 @@ while running:
     if game_state == "menu":
         screen.fill((20, 12, 40))
         screen.blit(base_surfs[selected_char], base_surfs[selected_char].get_rect(center=(400, 200)))
-        screen.blit(game_font.render("BRAINROT RUN", False, (255, 215, 0)),
-                    game_font.render("BRAINROT RUN", False, (255, 215, 0)).get_rect(center=(400, 60)))
+        screen.blit(game_font.render("Run Run Run Sahur", False, (255, 215, 0)),
+                    game_font.render("Run Run Run Sahur", False, (255, 215, 0)).get_rect(center=(400, 60)))
         screen.blit(small_font.render("SPACE: play   H: scores   S: shop", False, (200, 200, 200)),
                     small_font.render("SPACE: play   H: scores   S: shop", False, (200, 200, 200)).get_rect(center=(400, 350)))
         screen.blit(small_font.render("Coins: " + str(total_coins), False, (255, 215, 0)),
@@ -535,13 +535,7 @@ while running:
             screen.blit(small_font.render("No scores yet!", False, (200, 200, 200)),
                         small_font.render("No scores yet!", False, (200, 200, 200)).get_rect(center=(400, 200)))
         else:
-            for i in range(len(sorted(scores, reverse=True)[:10])):
-                s = sorted(scores, reverse=True)[i]
-                color = (255, 215, 0) if i == 0 else (200, 200, 200)
-                screen.blit(small_font.render(str(i + 1) + ".  " + str(s), False, color),
-                            small_font.render(str(i + 1) + ".  " + str(s), False, color).get_rect(center=(400, 100 + i * 26)))
-        screen.blit(small_font.render("SPACE to return", False, (150, 150, 150)),
-                    small_font.render("SPACE to return", False, (150, 150, 150)).get_rect(center=(400, 375)))
+   
 
     elif game_state == "shop":
         screen.fill((30, 25, 55))
@@ -556,12 +550,7 @@ while running:
             y = 150 + i * 80
             color = (60, 100, 60) if pending == items[i][1] else (45, 38, 75)
             pygame.draw.rect(screen, color, (150, y, 500, 55), border_radius=10)
-            pygame.draw.rect(screen, (255, 215, 0), (150, y, 500, 55), 2, border_radius=10)
-            screen.blit(small_font.render(items[i][0], False, (255, 255, 255)), (170, y + 16))
-            if pending == items[i][1]:
-                screen.blit(tiny_font.render("QUEUED", False, (130, 255, 130)), (560, y + 20))
-        screen.blit(small_font.render("SPACE to leave", False, (200, 200, 200)),
-                    small_font.render("SPACE to leave", False, (200, 200, 200)).get_rect(center=(400, 375)))
+
 
     pygame.display.flip()
     clock.tick(60)
