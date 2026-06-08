@@ -526,7 +526,7 @@ while running:
                     small_font.render("Coins earned: " + str(coins_run), False, (255, 215, 0)).get_rect(center=(400, 350)))
         screen.blit(small_font.render("SPACE to play again   M for menu", False, (200, 200, 200)),
                     small_font.render("SPACE to play again   M for menu", False, (200, 200, 200)).get_rect(center=(400, 385)))
-
+ 
     elif game_state == "high_scores":
         screen.fill((20, 20, 40))
         screen.blit(game_font.render("HIGH SCORES", False, (255, 215, 0)),
@@ -535,8 +535,14 @@ while running:
             screen.blit(small_font.render("No scores yet!", False, (200, 200, 200)),
                         small_font.render("No scores yet!", False, (200, 200, 200)).get_rect(center=(400, 200)))
         else:
-   
-
+            for i in range(len(sorted(scores, reverse=True)[:10])):
+                s = sorted(scores, reverse=True)[i]
+                color = (255, 215, 0) if i == 0 else (200, 200, 200)
+                screen.blit(small_font.render(str(i + 1) + ".  " + str(s), False, color),
+                            small_font.render(str(i + 1) + ".  " + str(s), False, color).get_rect(center=(400, 100 + i * 26)))
+        screen.blit(small_font.render("SPACE to return", False, (150, 150, 150)),
+                    small_font.render("SPACE to return", False, (150, 150, 150)).get_rect(center=(400, 375)))
+ 
     elif game_state == "shop":
         screen.fill((30, 25, 55))
         screen.blit(game_font.render("SHOP", False, (255, 215, 0)),
@@ -550,9 +556,14 @@ while running:
             y = 150 + i * 80
             color = (60, 100, 60) if pending == items[i][1] else (45, 38, 75)
             pygame.draw.rect(screen, color, (150, y, 500, 55), border_radius=10)
-
-
+            pygame.draw.rect(screen, (255, 215, 0), (150, y, 500, 55), 2, border_radius=10)
+            screen.blit(small_font.render(items[i][0], False, (255, 255, 255)), (170, y + 16))
+            if pending == items[i][1]:
+                screen.blit(tiny_font.render("QUEUED", False, (130, 255, 130)), (560, y + 20))
+        screen.blit(small_font.render("SPACE to leave", False, (200, 200, 200)),
+                    small_font.render("SPACE to leave", False, (200, 200, 200)).get_rect(center=(400, 375)))
+ 
     pygame.display.flip()
     clock.tick(60)
-
+ 
 pygame.quit()
