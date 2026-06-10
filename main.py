@@ -5,7 +5,7 @@ Made by intern: @bassemfarid, no one or nothing else. 🤖
 Additional author: Andy Wang
 Commit hash: cfcac38ebf8d0da7475a6662af24faee47ab38d2
 
-Features I added:
+Features:
 - Character select (Tralalero Tralala and Tung Tung Tung Sahur)
 - Lives system with 3 hearts
 - Double jump
@@ -17,9 +17,12 @@ Features I added:
 - More enemy types: Cappuccino Assassino (fast), Six and Seven (duo)
 - In-game powerups: magnet, slow time, shield
 - Camera shake when you get hit
-- Brainrot Meter that fills up, and press B to activate Brainrot Mode
+- Brainrot Meter that fills up, press B to activate Brainrot Mode
 - Brainrot Mode gives 3x score for 8 seconds but obstacles get faster
 - Streak multiplier for clearing obstacles in a row
+- Achievements for hitting milestones
+- Graveyard showing where you died this run
+- Last life heartbeat effect
 """
 
 import pygame
@@ -218,12 +221,44 @@ def player_animation():
             player_index = 0
         player_surf = char_walk[selected_char][int(player_index)]
 
+def check_achievements():
+    global achievement_msg, achievement_timer
+    milestones = [
+        ("score100", score >= 100, "Score 100!"),
+        ("score500", score >= 500, "Score 500!"),
+        ("score1000", score >= 1000, "Score 1000!"),
+    ]
+    for key, condition, msg in milestones:
+        if key not in achievements and condition:
+            achievements.add(key)
+            achievement_msg = msg
+            achievement_timer = 120
+
+
+def draw_achievement():
+    global achievement_timer
+    if achievement_timer <= 0:
+        return
+    achievement_timer -= 1
+    label = tiny_font.render("ACHIEVEMENT: " + achievement_msg, False, (255, 215, 0))
+    screen.blit(label, label.get_rect(center=(400, 140)))
+
+
+def draw_graveyard():
+    for i in range(len(grave_scores)):
+        gx = 
+        gy = GROUND_Y - gravestone_surf.get_height()
+        screen.blit(gravestone_surf, (gx, gy))
+        label = tiny_font.render(str(grave_scores[i]), False, (220, 220, 220))
+
 
 def reset_game():
     global gravity_speed, obstacle_list, coin_list, powerup_list
     global score, score_acc, game_speed, lives, jumps_used, streak
     global coins_run, active_powerup, powerup_timer, shake_timer, bg_offset
     global brainrot_meter, brainrot_active, brainrot_timer
+    global achievements, achievement_msg, achievement_timer
+    global grave_scores, heartbeat_timer
 
     gravity_speed = 0
     obstacle_list = []
@@ -243,6 +278,11 @@ def reset_game():
     brainrot_meter = 0
     brainrot_active = False
     brainrot_timer = 0
+    achievements = set()
+    achievement_msg = ""
+    achievement_timer = 0
+    grave_scores = []
+    heartbeat_timer = 0
     player_rect.bottomleft = (25, GROUND_Y)
 
     boost = load_boost()
@@ -257,9 +297,14 @@ def reset_game():
 def handle_death():
     global lives, obstacle_list, coin_list, powerup_list, game_state
     global gravity_speed, jumps_used, total_coins, shake_timer
+    global streak, brainrot_active, brainrot_timer
 
     lives -= 1
+    grave_scores.append(score)
+    streak = 0
     shake_timer = 18
+    brainrot_active = False
+    brainrot_timer = 0
     obstacle_list = []
     coin_list = []
     powerup_list = []
@@ -277,7 +322,7 @@ def handle_death():
 
 pygame.init()
 screen = pygame.display.set_mode((800, 400))
-pygame.display.set_caption("Tung Tung Tung Run")
+pygame.display.set_caption("Brainrot Run")
 clock = pygame.time.Clock()
 
 game_font = pygame.font.Font(pygame.font.get_default_font(), 28)
@@ -292,7 +337,7 @@ GRAVITY = [1.0, 1.5]
 # Backgrounds: city, desert, mountain, jungle, underwater from itch.io packs
 # The Pixel Nook: https://the-pixel-nook.itch.io/parallax-backgrounds-demo
 # ansimuz: https://ansimuz.itch.io/underwater-fantasy-pixel-art-environment
-# License: Creative Commons Attribution v4.0 International if you go to More Information on the site
+# License: Creative Commons Attribution v4.0 International by clicking More Information on the site
 BG_FILES = ["city_clean.gif", "forest1.png", "desert.gif",
             "mountain.gif", "jungle.gif", "underwater.png", "city_dirty.gif", "forest2.png"]
 backgrounds = []
@@ -330,6 +375,7 @@ seven_surf = pygame.transform.scale(pygame.image.load("graphics/sixseven/seven.p
 # UI
 heart_surf = pygame.transform.scale(pygame.image.load("graphics/utils/life.png").convert_alpha(), (28, 28))
 coin_surf = pygame.transform.scale(pygame.image.load("graphics/utils/coin.png").convert_alpha(), (22, 22))
+gravestone_surf = pygame.transform.scale(pygame.image.load("graphics/utils/gravestone.png").convert_alpha(), (26, 34))
 
 obstacle_timer = pygame.USEREVENT + 1
 pygame.time.set_timer(obstacle_timer, 1500)
@@ -362,6 +408,11 @@ brainrot_meter = 0
 brainrot_active = False
 brainrot_timer = 0
 BRAINROT_DURATION = 480
+achievements = set()
+achievement_msg = ""
+achievement_timer = 0
+grave_scores = []
+heartbeat_timer = 0
 
 player_surf = char_walk[0][0]
 player_rect = player_surf.get_rect(bottomleft=(25, GROUND_Y))
@@ -451,8 +502,8 @@ while running:
     if game_state == "menu":
         screen.fill((20, 12, 40))
         screen.blit(base_surfs[selected_char], base_surfs[selected_char].get_rect(center=(400, 200)))
-        screen.blit(game_font.render("Tung Tung Tung Run", False, (255, 215, 0)),
-                    game_font.render("Tung Tung Tung Run", False, (255, 215, 0)).get_rect(center=(400, 60)))
+        screen.blit(game_font.render("BRAINROT RUN", False, (255, 215, 0)),
+                    game_font.render("BRAINROT RUN", False, (255, 215, 0)).get_rect(center=(400, 60)))
         screen.blit(small_font.render("SPACE: play   H: scores   S: shop", False, (200, 200, 200)),
                     small_font.render("SPACE: play   H: scores   S: shop", False, (200, 200, 200)).get_rect(center=(400, 350)))
         screen.blit(small_font.render("Coins: " + str(total_coins), False, (255, 215, 0)),
@@ -485,6 +536,8 @@ while running:
         bx = -(bg_offset % 800)
         screen.blit(backgrounds[biome], (bx, 0))
         screen.blit(backgrounds[biome], (bx + 800, 0))
+
+        draw_graveyard()
 
         score_acc += 1 / 60.0
         streak_mult = 1.0 + min(streak // 5, 4) * 0.5
@@ -521,6 +574,17 @@ while running:
         if active_powerup == "shield":
             pygame.draw.circle(screen, (255, 215, 0), player_rect.center, 38, 2)
         screen.blit(player_surf, player_rect)
+
+        # Last life heartbeat
+        if lives == 1:
+            heartbeat_timer += 1
+            if heartbeat_timer % 90 < 8:
+                red = pygame.Surface((800, 400))
+                red.set_alpha(22)
+                red.fill((180, 0, 0))
+                screen.blit(red, (0, 0))
+        else:
+            heartbeat_timer = 0
 
         # Brainrot visuals
         if brainrot_active:
@@ -562,6 +626,9 @@ while running:
 
         if not check_collisions():
             handle_death()
+
+        check_achievements()
+        draw_achievement()
 
         if shake_timer > 0:
             temp = screen.copy()
