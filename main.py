@@ -352,8 +352,8 @@ GRAVITY = [1.0, 1.5]
 # The Pixel Nook: https://the-pixel-nook.itch.io/parallax-backgrounds-demo
 # ansimuz: https://ansimuz.itch.io/underwater-fantasy-pixel-art-environment
 # License: Creative Commons Attribution v4.0 International by clicking More Information on the site
-BG_FILES = ["underwater.png", "jungle.gif", "mountain.gif",
-            "desert.gif", "city_clean.gif", "city_dirty.gif", "forest1.png", "forest2.png"]
+BG_FILES = ["jungle.gif", "desert.gif", "city_clean.gif", "underwater.png",
+            "mountain.gif", "city_dirty.gif", "forest1.png", "forest2.png"]
 backgrounds = []
 for name in BG_FILES:
     try:
