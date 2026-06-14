@@ -13,16 +13,21 @@ Features:
 - Coins you collect during the run, saved to coins.txt
 - Shop to spend coins on boosts (extra life, shield, score doubler)
 - Scrolling biome backgrounds that change every 500 points
+- Biome name flash when the world changes
+- Scrolling background on the main menu
+- Best score displayed on the menu
 - Pause menu
 - More enemy types: Cappuccino Assassino (fast), Six and Seven (duo)
 - In-game powerups: magnet, slow time, shield
 - Camera shake when you get hit
+- Brief invincibility after getting hit so you dont instantly lose another life
 - Brainrot Meter that fills up, press B to activate Brainrot Mode
 - Brainrot Mode gives 3x score for 8 seconds but obstacles get faster
 - Streak multiplier for clearing obstacles in a row
 - Achievements for hitting milestones
 - Graveyard showing where you died this run
 - Last life heartbeat effect
+- Speed cap so the game doesnt become unplayable at high scores
 """
 
 import pygame
@@ -154,6 +159,8 @@ def move_obstacles():
 def check_collisions():
     if active_powerup == "shield":
         return True
+    if invincible_timer > 0:
+        return True
     inset = pygame.Rect(player_rect.x + 6, player_rect.y + 4,
                         player_rect.width - 12, player_rect.height - 8)
     for surf, rect, etype in obstacle_list:
@@ -167,11 +174,21 @@ def check_collisions():
 
 
 def spawn_coins():
-    """Spawn a row of coins for the player to collect."""
+    """Spawn coins in different patterns at ground level or jump height."""
     x = randint(900, 1100)
-    y = randint(270, 350)
-    for i in range(randint(5, 8)):
-        coin_list.append(pygame.Rect(x + i * 32, y, 22, 22))
+    pattern = choice(["ground", "jump", "zigzag"])
+    cw = coin_surf.get_width()
+    ch = coin_surf.get_height()
+    if pattern == "ground":
+        for i in range(randint(5, 8)):
+            coin_list.append(pygame.Rect(x + i * 32, GROUND_Y - 24, cw, ch))
+    elif pattern == "jump":
+        for i in range(randint(5, 8)):
+            coin_list.append(pygame.Rect(x + i * 32, 280, cw, ch))
+    else:
+        for i in range(6):
+            y = GROUND_Y - 24 if i % 2 == 0 else 280
+            coin_list.append(pygame.Rect(x + i * 36, y, cw, ch))
 
 
 def move_and_collect_coins():
@@ -271,7 +288,8 @@ def reset_game():
     global coins_run, active_powerup, powerup_timer, shake_timer, bg_offset
     global brainrot_meter, brainrot_active, brainrot_timer
     global achievements, achievement_msg, achievement_timer
-    global grave_scores, heartbeat_timer
+    global grave_scores, heartbeat_timer, invincible_timer
+    global biome_name_timer, last_biome
 
     gravity_speed = 0
     obstacle_list = []
@@ -296,6 +314,9 @@ def reset_game():
     achievement_timer = 0
     grave_scores = []
     heartbeat_timer = 0
+    invincible_timer = 0
+    biome_name_timer = 0
+    last_biome = 0
     player_rect.bottomleft = (25, GROUND_Y)
 
     boost = load_boost()
@@ -310,12 +331,13 @@ def reset_game():
 def handle_death():
     global lives, obstacle_list, coin_list, powerup_list, game_state
     global gravity_speed, jumps_used, total_coins, shake_timer
-    global streak, brainrot_active, brainrot_timer
+    global streak, brainrot_active, brainrot_timer, invincible_timer
 
     lives -= 1
     grave_scores.append(score)
     streak = 0
     shake_timer = 18
+    invincible_timer = 120
     brainrot_active = False
     brainrot_timer = 0
     obstacle_list = []
@@ -335,9 +357,8 @@ def handle_death():
 
 pygame.init()
 screen = pygame.display.set_mode((800, 400))
-pygame.display.set_caption("Tung Tung Tung Run")
+pygame.display.set_caption("BRAINROT RUN")
 clock = pygame.time.Clock()
-
 
 game_font = pygame.font.Font(pygame.font.get_default_font(), 28)
 small_font = pygame.font.Font(pygame.font.get_default_font(), 20)
@@ -354,6 +375,8 @@ GRAVITY = [1.0, 1.5]
 # License: Creative Commons Attribution v4.0 International by clicking More Information on the site
 BG_FILES = ["jungle.gif", "desert.gif", "city_clean.gif", "underwater.png",
             "mountain.gif", "city_dirty.gif", "forest1.png", "forest2.png"]
+BIOME_NAMES = ["Jungle", "Desert", "City", "Underwater",
+               "Mountain", "Dark City", "Forest", "Dark Forest"]
 backgrounds = []
 for name in BG_FILES:
     try:
@@ -427,6 +450,9 @@ achievement_msg = ""
 achievement_timer = 0
 grave_scores = []
 heartbeat_timer = 0
+invincible_timer = 0
+biome_name_timer = 0
+last_biome = 0
 
 player_surf = char_walk[0][0]
 player_rect = player_surf.get_rect(bottomleft=(25, GROUND_Y))
@@ -449,6 +475,8 @@ while running:
                     game_state = "high_scores"
                 elif event.key == pygame.K_s:
                     game_state = "shop"
+                elif event.key == pygame.K_i:
+                    game_state = "how_to_play"
 
         elif game_state == "char_select":
             if event.type == pygame.KEYDOWN:
@@ -500,28 +528,48 @@ while running:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
                 game_state = "menu"
 
+        elif game_state == "how_to_play":
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                game_state = "menu"
+
         elif game_state == "shop":
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     game_state = "menu"
-                if event.key == pygame.K_1 and total_coins >= 25 and load_boost() != "extra_life":
-                    total_coins -= 25
-                    save_coins(total_coins)
-                    save_boost("extra_life")
-                elif event.key == pygame.K_2 and total_coins >= 50 and load_boost() != "shield":
-                    total_coins -= 50
-                    save_coins(total_coins)
-                    save_boost("shield")
+                if load_boost() == "none":
+                    if event.key == pygame.K_1 and total_coins >= 25:
+                        total_coins -= 25
+                        save_coins(total_coins)
+                        save_boost("extra_life")
+                    elif event.key == pygame.K_2 and total_coins >= 50:
+                        total_coins -= 50
+                        save_coins(total_coins)
+                        save_boost("shield")
+                    elif event.key == pygame.K_3 and total_coins >= 80:
+                        total_coins -= 80
+                        save_coins(total_coins)
+                        save_boost("score_x2")
 
     if game_state == "menu":
-        screen.fill((20, 12, 40))
+        # Scrolling background on menu
+        menu_offset = (pygame.time.get_ticks() // 8) % 800
+        screen.blit(backgrounds[0], (-menu_offset, 0))
+        screen.blit(backgrounds[0], (800 - menu_offset, 0))
+        dark = pygame.Surface((800, 400))
+        dark.set_alpha(120)
+        dark.fill((0, 0, 0))
+        screen.blit(dark, (0, 0))
         screen.blit(base_surfs[selected_char], base_surfs[selected_char].get_rect(center=(400, 200)))
-        screen.blit(game_font.render("TUNG TUNG TUNG RUN", False, (255, 215, 0)),
-                    game_font.render("TUNG TUNG TUNG RUN", False, (255, 215, 0)).get_rect(center=(400, 60)))
-        screen.blit(small_font.render("SPACE: Play   H: High Scores   S: Shop", False, (200, 200, 200)),
-                    small_font.render("SPACE: Play   H: High scores   S: Shop", False, (200, 200, 200)).get_rect(center=(400, 350)))
+        screen.blit(game_font.render("BRAINROT RUN", False, (255, 215, 0)),
+                    game_font.render("BRAINROT RUN", False, (255, 215, 0)).get_rect(center=(400, 60)))
+        screen.blit(small_font.render("SPACE: Play   H: Scores   S: Shop   I: How to Play", False, (200, 200, 200)),
+                    small_font.render("SPACE: Play   H: Scores   S: Shop   I: How to Play", False, (200, 200, 200)).get_rect(center=(400, 345)))
         screen.blit(small_font.render("Coins: " + str(total_coins), False, (255, 215, 0)),
-                    small_font.render("Coins: " + str(total_coins), False, (255, 215, 0)).get_rect(center=(400, 380)))
+                    small_font.render("Coins: " + str(total_coins), False, (255, 215, 0)).get_rect(center=(400, 368)))
+        if scores:
+            best = max(scores)
+            screen.blit(small_font.render("Best: " + str(best), False, (200, 200, 200)),
+                        small_font.render("Best: " + str(best), False, (200, 200, 200)).get_rect(center=(400, 392)))
 
     elif game_state == "char_select":
         screen.fill((25, 18, 45))
@@ -542,7 +590,9 @@ while running:
             screen.blit(tiny_font.render(descs[i], False, (190, 190, 220)),
                         tiny_font.render(descs[i], False, (190, 190, 220)).get_rect(center=(cx, 272)))
         screen.blit(small_font.render("LEFT/RIGHT   SPACE to start", False, (220, 220, 220)),
-                    small_font.render("LEFT/RIGHT   SPACE to start", False, (220, 220, 220)).get_rect(center=(400, 370)))
+                    small_font.render("LEFT/RIGHT   SPACE to start", False, (220, 220, 220)).get_rect(center=(400, 355)))
+        screen.blit(small_font.render("Coins: " + str(total_coins) + "   Shop boost: " + load_boost(), False, (255, 215, 0)),
+                    small_font.render("Coins: " + str(total_coins) + "   Shop boost: " + load_boost(), False, (255, 215, 0)).get_rect(center=(400, 383)))
 
     elif game_state == "playing":
         bg_offset += game_speed
@@ -550,6 +600,17 @@ while running:
         bx = -(bg_offset % 800)
         screen.blit(backgrounds[biome], (bx, 0))
         screen.blit(backgrounds[biome], (bx + 800, 0))
+
+        # Show biome name when it changes
+        if biome != last_biome:
+            last_biome = biome
+            biome_name_timer = 120
+        if biome_name_timer > 0:
+            biome_name_timer -= 1
+            alpha = min(255, biome_name_timer * 4)
+            biome_surf = game_font.render(BIOME_NAMES[biome], False, (255, 215, 0))
+            biome_surf.set_alpha(alpha)
+            screen.blit(biome_surf, biome_surf.get_rect(center=(400, 200)))
 
         draw_graveyard()
 
@@ -560,7 +621,7 @@ while running:
         multiplier = base * streak_mult + brainrot_mult
         score_acc += (multiplier - 1.0) / 60.0
         score = int(score_acc) + coins_run * 10
-        game_speed = 5 + score // 200
+        game_speed = min(5 + score // 200, 12)
 
         if brainrot_active:
             brainrot_timer -= 1
@@ -573,6 +634,8 @@ while running:
             powerup_timer -= 1
             if powerup_timer <= 0:
                 active_powerup = "none"
+        if invincible_timer > 0:
+            invincible_timer -= 1
 
         move_and_collect_coins()
         move_and_collect_powerups()
@@ -601,7 +664,6 @@ while running:
             heartbeat_timer = 0
 
         # Brainrot visuals
-        # Make user overstimulated
         if brainrot_active:
             colors = [(255, 50, 200), (255, 120, 50), (50, 200, 255), (200, 255, 50)]
             c = colors[(time_ms // 100) % 4]
@@ -623,6 +685,8 @@ while running:
         if streak >= 3:
             screen.blit(small_font.render("Streak: " + str(streak), False, (255, 140, 0)),
                         small_font.render("Streak: " + str(streak), False, (255, 140, 0)).get_rect(center=(400, 65)))
+        biome_hud = tiny_font.render(BIOME_NAMES[(score // 500) % len(BIOME_NAMES)], False, (200, 200, 200))
+        screen.blit(biome_hud, biome_hud.get_rect(topright=(795, 55)))
         if active_powerup != "none":
             secs = powerup_timer // 60 + 1
             pcolors = {"magnet": (100, 200, 255), "slow": (180, 120, 255), "shield": (255, 215, 0)}
@@ -675,9 +739,12 @@ while running:
         screen.blit(small_font.render("Score: " + str(score), False, (255, 255, 255)),
                     small_font.render("Score: " + str(score), False, (255, 255, 255)).get_rect(center=(400, 320)))
         screen.blit(small_font.render("Coins earned: " + str(coins_run), False, (255, 215, 0)),
-                    small_font.render("Coins earned: " + str(coins_run), False, (255, 215, 0)).get_rect(center=(400, 350)))
+                    small_font.render("Coins earned: " + str(coins_run), False, (255, 215, 0)).get_rect(center=(400, 348)))
+        if scores and score == max(scores):
+            screen.blit(game_font.render("NEW BEST!", False, (255, 215, 0)),
+                        game_font.render("NEW BEST!", False, (255, 215, 0)).get_rect(center=(400, 375)))
         screen.blit(small_font.render("SPACE to play again   M for Menu", False, (200, 200, 200)),
-                    small_font.render("SPACE to play again   M for Menu", False, (200, 200, 200)).get_rect(center=(400, 385)))
+                    small_font.render("SPACE to play again   M for Menu", False, (200, 200, 200)).get_rect(center=(400, 395)))
 
     elif game_state == "high_scores":
         screen.fill((20, 20, 40))
@@ -700,20 +767,51 @@ while running:
         screen.blit(game_font.render("SHOP", False, (255, 215, 0)),
                     game_font.render("SHOP", False, (255, 215, 0)).get_rect(center=(400, 40)))
         screen.blit(small_font.render("Your coins: " + str(total_coins), False, (255, 215, 0)),
-                    small_font.render("Your coins: " + str(total_coins), False, (255, 215, 0)).get_rect(center=(400, 85)))
+                    small_font.render("Your coins: " + str(total_coins), False, (255, 215, 0)).get_rect(center=(400, 78)))
         pending = load_boost()
-        items = [("[1] Extra Life - 25 coins", "extra_life"),
-                 ("[2] Starter Shield - 50 coins", "shield")]
+        if pending != "none":
+            screen.blit(small_font.render("Boost queued! Use it next run.", False, (130, 255, 130)),
+                        small_font.render("Boost queued! Use it next run.", False, (130, 255, 130)).get_rect(center=(400, 108)))
+        items = [("[1] Extra Life - 25 coins", "extra_life", "Start next run with 4 lives"),
+                 ("[2] Starter Shield - 50 coins", "shield", "Begin next run with 10s shield"),
+                 ("[3] Score Doubler - 80 coins", "score_x2", "Double your score next run")]
         for i in range(len(items)):
-            y = 150 + i * 80
+            y = 130 + i * 70
             color = (60, 100, 60) if pending == items[i][1] else (45, 38, 75)
-            pygame.draw.rect(screen, color, (150, y, 500, 55), border_radius=10)
-            pygame.draw.rect(screen, (255, 215, 0), (150, y, 500, 55), 2, border_radius=10)
-            screen.blit(small_font.render(items[i][0], False, (255, 255, 255)), (170, y + 16))
+            pygame.draw.rect(screen, color, (100, y, 600, 55), border_radius=10)
+            pygame.draw.rect(screen, (255, 215, 0), (100, y, 600, 55), 2, border_radius=10)
+            screen.blit(small_font.render(items[i][0], False, (255, 255, 255)), (120, y + 8))
+            screen.blit(tiny_font.render(items[i][2], False, (180, 180, 220)), (120, y + 32))
             if pending == items[i][1]:
-                screen.blit(tiny_font.render("QUEUED", False, (130, 255, 130)), (560, y + 20))
+                screen.blit(tiny_font.render("QUEUED", False, (130, 255, 130)), (620, y + 20))
         screen.blit(small_font.render("SPACE to leave", False, (200, 200, 200)),
-                    small_font.render("SPACE to leave", False, (200, 200, 200)).get_rect(center=(400, 375)))
+                    small_font.render("SPACE to leave", False, (200, 200, 200)).get_rect(center=(400, 385)))
+
+    elif game_state == "how_to_play":
+        screen.fill((18, 14, 38))
+        screen.blit(game_font.render("HOW TO PLAY", False, (255, 215, 0)),
+                    game_font.render("HOW TO PLAY", False, (255, 215, 0)).get_rect(center=(400, 35)))
+        controls = [
+            ("SPACE", "Jump. Press again mid-air for double jump."),
+            ("B", "Activate Brainrot Mode when meter is full."),
+            ("P", "Pause the game."),
+            ("Q", "Quit to menu from pause screen."),
+            ("", ""),
+            ("Coins", "Collect to spend in the shop between runs."),
+            ("M = Magnet", "Pulls nearby coins toward you."),
+            ("S = Slow", "Slows all obstacles for 8 seconds."),
+            ("+  = Shield", "Blocks one hit, then disappears."),
+            ("Streak", "Clear obstacles without getting hit for bonus score."),
+            ("Brainrot", "3x score, faster obstacles, rainbow screen."),
+        ]
+        for i in range(len(controls)):
+            key, desc = controls[i]
+            y = 75 + i * 28
+            if key:
+                screen.blit(small_font.render(key, False, (255, 215, 0)), (80, y))
+            screen.blit(small_font.render(desc, False, (210, 210, 210)), (270, y))
+        screen.blit(small_font.render("SPACE to return", False, (150, 150, 150)),
+                    small_font.render("SPACE to return", False, (150, 150, 150)).get_rect(center=(400, 388)))
 
     pygame.display.flip()
     clock.tick(60)
